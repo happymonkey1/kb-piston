@@ -1,3 +1,6 @@
 [submodule "vendor/v8"]
 	path = vendor/v8
 	url = https://chromium.googlesource.com/v8/v8.git
+[submodule "vendor/fmtlog"]
+	path = vendor/fmtlog
+	url = https://github.com/MengRao/fmtlog

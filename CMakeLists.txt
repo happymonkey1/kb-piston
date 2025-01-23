@@ -1,16 +1,33 @@
 cmake_minimum_required(VERSION 3.15) # Specify minimum CMake version
 project(kb-piston) # Set your project name
 
-set(KB_PISTON_SRCS src/kb/piston/entrypoint.cpp)
+set(KB_PISTON_SRCS
+    # /core/
+    src/kb/piston/core/core.h
+    src/kb/piston/core/types.h
+    src/kb/piston/core/fixed_string.h
+    # /engine/
+    src/kb/piston/engine/js_engine.h
+    src/kb/piston/engine/js_engine.cpp
+    # /error/
+    src/kb/piston/error/js_error.h
+    # /log/
+    src/kb/piston/log/logger.h
+    src/kb/piston/log/logger.cpp
+    # /runtime/
+    src/kb/piston/runtime/console.h
+    src/kb/piston/runtime/console.cpp
+    # /script/
+    src/kb/piston/script/js_script_error.h
+    src/kb/piston/script/js_script.h
+    src/kb/piston/script/js_script.cpp
+    # /util/
+    src/kb/piston/util/file_util.h
+)
 set(KB_PISTON_EXE kb-piston)
 set(KB_PISTON_LIB kb-piston-lib)
 
 set(CMAKE_CXX_STANDARD 20)
-
-# Include kb-piston directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/vendor/v8/include)
 
 set(
     V8_LIB_PATH
@@ -54,42 +71,83 @@ add_library(V8 STATIC IMPORTED)
 #    LINKER_LANGUAGE CXX
 #)
 
+# Use static release runtime, as that is what V8 is compiled with
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 link_directories(V8_LIB_PATH)
 
-# Add an executable
-add_executable(${KB_PISTON_EXE} ${KB_PISTON_SRCS})
-target_link_libraries(${KB_PISTON_EXE} PUBLIC
-    ${V8_LIB_PATH}/v8_monolith.lib
-    #${V8_LIB_PATH}/v8_libplatform.lib
-    #${V8_LIB_PATH}/v8_libbase.lib
-    WinMM
-    dbghelp # ref: https://stackoverflow.com/a/76240854
+set(FMTLIB_SRCS
+    "vendor/fmtlog/fmt/include/fmt/core.h"
+    "vendor/fmtlog/fmt/include/fmt/format.h"
+    "vendor/fmtlog/fmt/include/fmt/format-inl.h"
+    "vendor/fmtlog/fmt/src/format.cc"
 )
-target_compile_definitions(${KB_PISTON_EXE} PRIVATE
-    -DV8_COMPRESS_POINTERS=1
-    -V8_31BIT_SMIS_ON_64BIT_ARCH=1
-    -DV8_ENABLE_SANDBOX=1
-)
-
-#set_property(TARGET ${KB_PISTON_EXE} PROPERTY
-#    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Add library
-add_library(${KB_PISTON_LIB} STATIC ${KB_PISTON_SRCS})
+add_library(${KB_PISTON_LIB} STATIC ${KB_PISTON_SRCS} ${FMTLIB_SRCS})
 target_link_libraries(${KB_PISTON_LIB} PUBLIC
     ${V8_LIB_PATH}/v8_monolith.lib
-    #${V8_LIB_PATH}/v8_libplatform.lib
-    #${V8_LIB_PATH}/v8_libbase.lib
     WinMM
     dbghelp # ref: https://stackoverflow.com/a/76240854
 )
 target_compile_definitions(${KB_PISTON_LIB} PRIVATE
     -DV8_COMPRESS_POINTERS=1
-    -V8_31BIT_SMIS_ON_64BIT_ARCH=1
+    -DV8_31BIT_SMIS_ON_64BIT_ARCH=1
     -DV8_ENABLE_SANDBOX=1
+    $<$<CONFIG:Debug>:KB_DEBUG>
+    $<$<CONFIG:Release>:KB_RELEASE>
 )
+
+# Include kb-piston directories
+include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/v8/include)
+include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/fmtlog)
+include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/fmtlog/fmt/include)
+
+# Add a test executable
+add_executable(${KB_PISTON_EXE}
+    src/kb/piston/entrypoint.cpp)
+target_link_libraries(${KB_PISTON_EXE} PUBLIC
+    ${KB_PISTON_LIB}
+)
+target_compile_definitions(${KB_PISTON_EXE} PRIVATE
+    -DV8_COMPRESS_POINTERS=1
+    -DV8_31BIT_SMIS_ON_64BIT_ARCH=1
+    -DV8_ENABLE_SANDBOX=1
+    $<$<CONFIG:Debug>:KB_DEBUG>
+    $<$<CONFIG:Release>:KB_RELEASE>
+)
+include_directories(${KB_PISTON_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Set output directory
+set(OPERATING_SYSTEM $<IF:$<PLATFORM_ID:Windows>,windows,linux>)
+set(ARCHITECTURE $<IF:$<BOOL:${CMAKE_SIZEOF_VOID_P}>,x86_x64,x86>)
+set(RELEASE $<CONFIG>)
+
+# Specify the custom output directory structure
+set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/${RELEASE}-${OPERATING_SYSTEM}-${ARCHITECTURE}")
+
+set_target_properties(${KB_PISTON_LIB} ${KB_PISTON_EXE}
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}/${PROJECT_NAME}"
+    LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}/${PROJECT_NAME}"
+    ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}/${PROJECT_NAME}"
+)
+
+# Configure output directory for each release type
+foreach(CONFIG_TYPE Debug Release RelWithDebInfo MinSizeRel)
+    set_target_properties(${KB_PISTON_LIB} ${KB_PISTON_EXE}
+        PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE} "${OUTPUT_DIR}/${PROJECT_NAME}"
+        LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE} "${OUTPUT_DIR}/${PROJECT_NAME}"
+        ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE} "${OUTPUT_DIR}/${PROJECT_NAME}"
+    )
+endforeach()
+
+#set_property(TARGET ${KB_PISTON_EXE} PROPERTY
+#    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+
 #set_property(TARGET ${KB_PISTON_LIB} PROPERTY
 #    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 

@@ -1,12 +1,33 @@
+#include "kb/piston/piston.h"
 
-#include <v8.h>
-#include <libplatform/libplatform.h>
+#include <csignal>
 
-#if __cplusplus <= 201703L
-#error "C++20 or later required."
-#endif
+// TODO: should be library internal
+namespace piston_internal
+{ // start namespace ::details
+
+auto signal_handler(kb::piston::i32 p_signal) noexcept -> void
+{
+    fmtlog::stopPollingThread();
+    fmtlog::poll();
+
+    std::signal(p_signal, SIG_DFL);
+    std::raise(p_signal);
+}
+
+auto register_signal_handlers() noexcept -> void
+{
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
+    std::signal(SIGSEGV, signal_handler);
+    std::signal(SIGABRT, signal_handler);
+}
+
+} // end namespace ::details
+
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
+#if 0
     // Initialize V8
     v8::V8::InitializeICUDefaultLocation(argv[0]);
     v8::V8::InitializeExternalStartupData(argv[0]);
@@ -50,6 +71,29 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     v8::V8::Dispose();
     v8::V8::DisposePlatform();
     delete create_params.array_buffer_allocator;
+#endif
+
+    piston_internal::register_signal_handlers();
+
+    // TODO: this should probably be handled by internal api exposed through kb::piston::init() when `KB_PISTON_EXTERNAL_LOGGER` is not defined.
+    fmtlog::startPollingThread(1000000);
+
+    KB_PISTON_INFO("Starting Piston JS Engine");
+    kb::piston::js_engine engine{};
+    if (!engine.register_script("examples/basic-testing/entity.js"))
+        return -1;
+
+    bool running = true;
+    std::chrono::time_point<std::chrono::steady_clock> end;
+    while (running)
+    {
+        const auto now = std::chrono::high_resolution_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::seconds>(now - end);
+
+        engine.on_update(static_cast<kb::piston::f32>(delta.count()));
+
+        end = std::chrono::high_resolution_clock::now();
+    }
 
     return 0;
 }

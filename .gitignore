@@ -29,6 +29,9 @@ CMakeUserPresets.json
 
 kb-piston.dir/
 kb-piston-lib.dir/
+V8.dir/
 x64/
 Debug/
 Release/
+bin/
+bin-int/
