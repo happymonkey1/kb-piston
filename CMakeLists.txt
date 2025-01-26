@@ -11,9 +11,16 @@ set(KB_PISTON_SRCS
     src/kb/piston/engine/js_engine.cpp
     # /error/
     src/kb/piston/error/js_error.h
+    # /event/
+    src/kb/piston/event/dispatcher.h
+    src/kb/piston/event/event.h
+    src/kb/piston/event/meta.h
+    src/kb/piston/event/orchestrator.h
     # /log/
     src/kb/piston/log/logger.h
     src/kb/piston/log/logger.cpp
+    # /meta/
+    src/kb/piston/meta/meta.h
     # /runtime/
     src/kb/piston/runtime/console.h
     src/kb/piston/runtime/console.cpp
