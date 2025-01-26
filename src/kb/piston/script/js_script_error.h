@@ -8,7 +8,7 @@ enum class js_script_error_t : u8
 {
     lib_internal,
 
-    on_update,
+    illegal_state_exception,
 };
 
 } // end namespace kb::piston

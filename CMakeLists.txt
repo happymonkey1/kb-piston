@@ -6,6 +6,8 @@ set(KB_PISTON_SRCS
     src/kb/piston/core/core.h
     src/kb/piston/core/types.h
     src/kb/piston/core/fixed_string.h
+    # /ecs/
+    src/kb/piston/ecs/components.h
     # /engine/
     src/kb/piston/engine/js_engine.h
     src/kb/piston/engine/js_engine.cpp
@@ -22,6 +24,8 @@ set(KB_PISTON_SRCS
     # /meta/
     src/kb/piston/meta/meta.h
     # /runtime/
+    src/kb/piston/runtime/application.h
+    src/kb/piston/runtime/application.cpp
     src/kb/piston/runtime/console.h
     src/kb/piston/runtime/console.cpp
     # /script/
@@ -110,6 +114,7 @@ include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/v8/include)
 include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/fmtlog)
 include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/fmtlog/fmt/include)
+include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/entt/include)
 
 # Add a test executable
 add_executable(${KB_PISTON_EXE}
@@ -125,6 +130,7 @@ target_compile_definitions(${KB_PISTON_EXE} PRIVATE
     $<$<CONFIG:Release>:KB_RELEASE>
 )
 include_directories(${KB_PISTON_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${KB_PISTON_LIB} ${CMAKE_CURRENT_SOURCE_DIR}/vendor/entt/include)
 
 # Set output directory
 set(OPERATING_SYSTEM $<IF:$<PLATFORM_ID:Windows>,windows,linux>)

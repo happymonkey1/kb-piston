@@ -75,8 +75,21 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     KB_PISTON_INFO("Starting Piston JS Engine");
     kb::piston::js_engine engine{};
-    if (!engine.register_script("examples/basic-testing/entity.js"))
-        return -1;
+
+    std::vector<const char*> scripts_to_load{};
+    scripts_to_load.emplace_back("examples/basic-testing/entity.js");
+    scripts_to_load.emplace_back("examples/basic-testing/serialization.js");
+
+    for (const char* script_name : scripts_to_load)
+    {
+        if (!engine.register_script(script_name))
+        {
+            KB_PISTON_ERROR("Fatal script loading error!");
+            return -1;
+        }
+    }
+
+    engine.on_init();
 
     bool running = true;
     std::chrono::time_point<std::chrono::steady_clock> end;

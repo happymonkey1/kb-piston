@@ -26,12 +26,12 @@ public:
     ) noexcept -> void;
 
 private:
-    static auto log_debug(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
-    static auto log_info(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
-    static auto log_warn(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
-    static auto log_error(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
+    static auto log_debug_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
+    static auto log_info_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
+    static auto log_warn_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
+    static auto log_error_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void;
 
-    static auto log_impl(
+    static auto log_impl_handler(
         log_level_t p_level,
         const v8::FunctionCallbackInfo<v8::Value>& p_args
     ) noexcept -> void;

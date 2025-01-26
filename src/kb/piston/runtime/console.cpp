@@ -37,24 +37,24 @@ auto console::register_global(v8::Isolate* p_isolate, v8::Local<v8::Context> p_g
     // Set functions on the console template object
     console_template->Set(
         v8::String::NewFromUtf8Literal(p_isolate, "log"),
-        v8::FunctionTemplate::New(p_isolate, log_info)
+        v8::FunctionTemplate::New(p_isolate, log_info_handler)
     );
 
     console_template->Set(
         v8::String::NewFromUtf8Literal(p_isolate, "debug"),
-        v8::FunctionTemplate::New(p_isolate, log_debug)
+        v8::FunctionTemplate::New(p_isolate, log_debug_handler)
     );
     console_template->Set(
         v8::String::NewFromUtf8Literal(p_isolate, "info"),
-        v8::FunctionTemplate::New(p_isolate, log_info)
+        v8::FunctionTemplate::New(p_isolate, log_info_handler)
     );
     console_template->Set(
         v8::String::NewFromUtf8Literal(p_isolate, "warn"),
-        v8::FunctionTemplate::New(p_isolate, log_warn)
+        v8::FunctionTemplate::New(p_isolate, log_warn_handler)
     );
     console_template->Set(
         v8::String::NewFromUtf8Literal(p_isolate, "error"),
-        v8::FunctionTemplate::New(p_isolate, log_error)
+        v8::FunctionTemplate::New(p_isolate, log_error_handler)
     );
 
     p_global_context->Global()->Set(
@@ -66,27 +66,27 @@ auto console::register_global(v8::Isolate* p_isolate, v8::Local<v8::Context> p_g
     set_isolate(p_isolate);
 }
 
-auto console::log_debug(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
+auto console::log_debug_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
 {
-    log_impl(log_level_t::debug, p_args);
+    log_impl_handler(log_level_t::debug, p_args);
 }
 
-auto console::log_info(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
+auto console::log_info_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
 {
-    log_impl(log_level_t::info, p_args);
+    log_impl_handler(log_level_t::info, p_args);
 }
 
-auto console::log_warn(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
+auto console::log_warn_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
 {
-    log_impl(log_level_t::warn, p_args);
+    log_impl_handler(log_level_t::warn, p_args);
 }
 
-auto console::log_error(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
+auto console::log_error_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
 {
-    log_impl(log_level_t::error, p_args);
+    log_impl_handler(log_level_t::error, p_args);
 }
 
-auto console::log_impl(log_level_t p_level, const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
+auto console::log_impl_handler(log_level_t p_level, const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
 {
     KB_PISTON_ASSERT(s_isolate, "[console]: Isolate pointer can not be null!");
 
@@ -110,6 +110,9 @@ auto console::log_impl(log_level_t p_level, const v8::FunctionCallbackInfo<v8::V
         break;
     case log_level_t::error:
         KB_PISTON_ERROR(log_format, log_level_name, args_str);
+        break;
+    default:
+        KB_PISTON_ASSERT(false, "[console]: Unhandled log level!");
         break;
     }
 
