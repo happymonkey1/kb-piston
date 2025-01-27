@@ -10,9 +10,9 @@ namespace kb::piston::runtime
 class application
 {
 public:
-    static auto register_global(
+    static auto register_with_context(
         v8::Isolate* KB_RESTRICT p_isolate,
-        v8::Local<v8::Context> p_global_context
+        const v8::Local<v8::Context>& p_context
     ) noexcept -> void;
 
 private:

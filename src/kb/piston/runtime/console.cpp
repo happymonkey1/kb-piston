@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "kb/piston/core/core.h"
+#include "kb/piston/engine/js_engine.h"
 
 namespace kb::piston::runtime
 { // start namespace kb::piston::runtime
@@ -27,10 +28,10 @@ constexpr auto log_level_to_c_str(log_level_t p_log_level) noexcept -> const cha
 
 } // end namespace kb::piston::runtime::details
 
-v8::Isolate* console::s_isolate = nullptr;
 
-auto console::register_global(v8::Isolate* p_isolate, v8::Local<v8::Context> p_global_context) noexcept -> void
+auto console::register_with_context(v8::Isolate* p_isolate, const v8::Local<v8::Context>& p_context) noexcept -> void
 {
+    KB_PISTON_ASSERT(p_isolate, "[console]: Isolate can not be null!");
     KB_PISTON_INFO("[console]: Registering Console APIs");
 
     const auto console_template = v8::ObjectTemplate::New(p_isolate);
@@ -57,13 +58,11 @@ auto console::register_global(v8::Isolate* p_isolate, v8::Local<v8::Context> p_g
         v8::FunctionTemplate::New(p_isolate, log_error_handler)
     );
 
-    p_global_context->Global()->Set(
-        p_global_context,
+    p_context->Global()->Set(
+        p_context,
         v8::String::NewFromUtf8Literal(p_isolate, "console"),
-        console_template->NewInstance(p_global_context).ToLocalChecked()
+        console_template->NewInstance(p_context).ToLocalChecked()
     );
-
-    set_isolate(p_isolate);
 }
 
 auto console::log_debug_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
@@ -88,7 +87,7 @@ auto console::log_error_handler(const v8::FunctionCallbackInfo<v8::Value>& p_arg
 
 auto console::log_impl_handler(log_level_t p_level, const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
 {
-    KB_PISTON_ASSERT(s_isolate, "[console]: Isolate pointer can not be null!");
+    KB_PISTON_ASSERT(piston::js_engine::get_isolate(), "[console]: Isolate pointer can not be null!");
 
     const char* log_level_name = details::log_level_to_c_str(p_level);
     constexpr const char* log_format = "[JS Console] [{}]: {}";
@@ -128,7 +127,7 @@ auto console::js_args_to_string(const v8::FunctionCallbackInfo<v8::Value>& p_arg
         if (i > 0)
             ss << ' ';
 
-        v8::String::Utf8Value arg_str{ s_isolate, p_args[i] };
+        v8::String::Utf8Value arg_str{ piston::js_engine::get_isolate(), p_args[i] };
         ss << *arg_str;
     }
 

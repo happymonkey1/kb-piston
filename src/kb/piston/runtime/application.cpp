@@ -7,9 +7,9 @@ namespace kb::piston::runtime
 { // start namespace kb::piston::runtime
 
 
-auto application::register_global(
+auto application::register_with_context(
     v8::Isolate* KB_RESTRICT p_isolate,
-    v8::Local<v8::Context> p_global_context
+    const v8::Local<v8::Context>& p_context
 ) noexcept -> void
 {
     const auto application_template = v8::ObjectTemplate::New(p_isolate);
@@ -18,10 +18,10 @@ auto application::register_global(
         v8::FunctionTemplate::New(p_isolate, exit_handler)
     );
 
-    p_global_context->Global()->Set(
-        p_global_context,
+    p_context->Global()->Set(
+        p_context,
         v8::String::NewFromUtf8Literal(p_isolate, "Application"),
-        application_template->NewInstance(p_global_context).ToLocalChecked()
+        application_template->NewInstance(p_context).ToLocalChecked()
     );
 }
 
@@ -30,9 +30,9 @@ auto application::exit_handler(const v8::FunctionCallbackInfo<v8::Value>& p_args
     i32 exit_code = 0;
 
     {
-        auto* isolate = js_engine::get_isolate();
+        auto* isolate = piston::js_engine::get_isolate();
         v8::HandleScope handle_scope{ isolate };
-        const auto context = js_engine::get_context();
+        const auto context = piston::js_engine::get_context();
 
         if (p_args.Length() >= 1)
         {

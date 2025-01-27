@@ -41,8 +41,26 @@ public:
     auto on_init() const noexcept -> void;
     auto on_update(time_step_t p_time_step) const noexcept -> void;
 
+    /**
+     * \brief Register runtime APIs (console.log, etc) within a context
+     * \param p_context Context to register runtimes within
+     */
+    static auto register_runtime_apis(
+        const v8::Local<v8::Context>& p_context
+    ) noexcept -> void;
+
     static auto get_context() noexcept -> v8::Local<v8::Context> { return s_global_context.Get(s_isolate); }
-    static auto get_isolate() noexcept -> v8::Isolate* { return s_isolate; }
+    static auto get_isolate() noexcept -> v8::Isolate*
+    {
+        KB_PISTON_ASSERT(s_isolate, "[js_engine]: Isolate can not be null!");
+        return s_isolate;
+    }
+
+    static auto get_global_template() noexcept -> v8::Local<v8::ObjectTemplate>
+    {
+        KB_PISTON_ASSERT(!s_global_template.IsEmpty(), "[js_engine]: Global template object can not be empty!");
+        return s_global_template.Get(s_isolate);
+    }
 
     auto handle_exception(const v8::TryCatch& p_try_catch) noexcept -> bool;
     auto handle_exception(v8::Local<v8::Value> p_error, v8::Local<v8::Message> p_message) noexcept -> bool;
@@ -68,11 +86,6 @@ public:
     }
 
 private:
-    [[nodiscard]] auto compile_script(
-        std::string_view p_script_source,
-        std::string p_script_name = "unnamed_script"
-    ) const noexcept -> option<js_script>;
-
     template <typename ComponentT, int N>
     [[nodiscard]] auto register_js_script(
         const script_handle_t p_script_handle,
@@ -87,6 +100,7 @@ private:
     static v8::Isolate* s_isolate;
     v8::Global<v8::Object> m_self_instance{};
     static v8::Global<v8::Context> s_global_context;
+    static v8::Global<v8::ObjectTemplate> s_global_template;
     v8::Isolate::CreateParams m_create_params{};
 
     entt::registry m_script_registry{};

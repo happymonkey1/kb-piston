@@ -20,9 +20,9 @@ enum class log_level_t : u8
 class console
 {
 public:
-    static auto register_global(
+    static auto register_with_context(
         v8::Isolate* p_isolate,
-        v8::Local<v8::Context> p_global_context
+        const v8::Local<v8::Context>& p_context
     ) noexcept -> void;
 
 private:
@@ -36,11 +36,7 @@ private:
         const v8::FunctionCallbackInfo<v8::Value>& p_args
     ) noexcept -> void;
 
-    static auto set_isolate(v8::Isolate* p_isolate) noexcept { s_isolate = p_isolate; }
-
     static auto js_args_to_string(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> std::string;
-
-    static v8::Isolate* s_isolate;
 
     friend class js_engine;
 };
