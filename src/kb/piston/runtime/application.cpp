@@ -12,6 +12,8 @@ auto application::register_with_context(
     const v8::Local<v8::Context>& p_context
 ) noexcept -> void
 {
+    KB_PISTON_INFO("[application]: Registering Application APIs");
+
     const auto application_template = v8::ObjectTemplate::New(p_isolate);
     application_template->Set(
         v8::String::NewFromUtf8Literal(p_isolate, "exit"),

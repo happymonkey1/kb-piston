@@ -1,9 +1,6 @@
 #pragma once
 #include <type_traits>
 
-#include "kb/piston/core/core.h"
-#include "kb/piston/log/logger.h"
-
 namespace kb::piston::event
 { // start namespace kb::piston::event
 
@@ -30,10 +27,9 @@ public:
 private:
     auto derived() const noexcept -> const derived_t& { return *static_cast<derived_t*>(this); }
     auto derived() noexcept -> derived_t& { return *static_cast<derived_t*>(this); }
-
 };
 
-#define PISTON_EVENT_BEGIN(derived_event, event_type) \
+#define PISTON_EVENT_BEGIN(derived_event, event_type, js_event_func_name) \
     class derived_event : public kb::piston::event::piston_event<event_type_t, derived_event> { \
     public: \
     derived_event() noexcept = default; \
@@ -45,6 +41,7 @@ private:
     auto get_piston_event_impl() noexcept -> piston_event& { return *this; } \
     auto get_event_impl() const noexcept -> const derived_event& { return *this; } \
     auto get_event_impl() noexcept -> derived_event& { return *this; } \
+    constexpr static const char (&get_js_event_function_name())[sizeof(js_event_func_name)] { return { js_event_func_name }; } \
     private:
 
 #define PISTON_EVENT_END() };

@@ -10,14 +10,14 @@ function onInit() {
     const beerString = JSON.stringify(beer);
     console.log(`beer = ${beerString}`);
     
-    return console.foo;
+    return beerString;
 }
 
 let updateCounter = 0;
 
 function onUpdate() {
     if (updateCounter % 500 === 0) {
-        console.log('Hello from serialization.js!');
+        //console.log('Hello from serialization.js!');
         updateCounter = 0;
     }
     

@@ -61,6 +61,9 @@ js_engine::js_engine()
 
 js_engine::~js_engine() noexcept
 {
+    // Clear script system
+    m_script_registry.clear<>();
+
     // s_global_context.Get(s_isolate)->Exit();
     s_global_context.Reset();
     m_self_instance.Reset();
@@ -69,64 +72,7 @@ js_engine::~js_engine() noexcept
     v8::V8::Dispose();
     v8::V8::DisposePlatform();
 
-    // Clear script system
-    m_script_registry.clear<>();
-
     delete m_create_params.array_buffer_allocator;
-}
-
-auto js_engine::register_script(const std::filesystem::path& p_path) noexcept -> bool
-{
-    const auto script_source = util::read_file_into_buffer(p_path);
-    auto script_name = p_path.filename().stem().string();
-
-    auto script = js_script::compile_script(script_source, std::move(script_name));
-    if (!script)
-    {
-        KB_PISTON_ERROR("[js_engine]: Failed to compile script!");
-        return false;
-    }
-
-    const auto script_handle = m_script_registry.create();
-    return register_script(script_handle, std::move(*script));
-}
-
-auto js_engine::register_script(
-    const script_handle_t p_script_handle,
-    js_script p_js_script
-) noexcept -> bool
-{
-    v8::HandleScope handle_scope{ s_isolate };
-
-    // Retrieve globals
-    auto script_context = p_js_script.m_context.Get(s_isolate);
-    const auto globals = script_context->Global();
-
-    v8::Context::Scope context_scope{ script_context };
-
-    // Get onUpdate function
-    register_js_script<script_update_component>(
-        p_script_handle,
-        p_js_script,
-        js_script::k_on_update_js_name,
-        globals,
-        script_context
-    );
-
-    // Get onInit function
-    register_js_script<script_init_component>(
-        p_script_handle,
-        p_js_script,
-        js_script::k_on_init_js_name,
-        globals,
-        script_context
-    );
-
-    m_script_registry.emplace<script_component>(p_script_handle, std::move(p_js_script));
-
-    KB_PISTON_INFO("[js_engine]: Registered script '{script}'", "script"_a = p_js_script.get_name());
-
-    return true;
 }
 
 auto js_engine::on_init() const noexcept -> void

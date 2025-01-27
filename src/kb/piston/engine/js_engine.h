@@ -6,10 +6,14 @@
 #include "kb/piston/log/logger.h"
 #include "kb/piston/script/js_script.h"
 #include "kb/piston/ecs/components.h"
+#include "kb/piston/event/orchestrator.h"
+#include "kb/piston/event/meta.h"
 
 #include <entt/entt.hpp>
 
 #include <vector>
+
+#include "kb/piston/util/file_util.h"
 
 
 #ifndef KB_ENGINE
@@ -32,7 +36,10 @@ public:
     js_engine();
     ~js_engine() noexcept;
 
+    template <event::meta::PistonEventT... Events>
     auto register_script(const std::filesystem::path& p_path) noexcept -> bool;
+
+    template <event::meta::PistonEventT... Events>
     auto register_script(
         script_handle_t p_script_handle,
         js_script p_js_script
@@ -40,6 +47,9 @@ public:
 
     auto on_init() const noexcept -> void;
     auto on_update(time_step_t p_time_step) const noexcept -> void;
+
+    template <piston::event::meta::PistonEventT EventT>
+    auto on_event(EventT* KB_RESTRICT p_event) const noexcept -> void;
 
     /**
      * \brief Register runtime APIs (console.log, etc) within a context
@@ -50,6 +60,7 @@ public:
     ) noexcept -> void;
 
     static auto get_context() noexcept -> v8::Local<v8::Context> { return s_global_context.Get(s_isolate); }
+
     static auto get_isolate() noexcept -> v8::Isolate*
     {
         KB_PISTON_ASSERT(s_isolate, "[js_engine]: Isolate can not be null!");
@@ -86,6 +97,17 @@ public:
     }
 
 private:
+    /**
+     * \brief Register a JS function in the internal ecs registry
+     * \tparam ComponentT 
+     * \tparam N 
+     * \param p_script_handle handle to the entity within the internal registry
+     * \param p_js_script
+     * \param p_function_name 
+     * \param p_js_globals 
+     * \param p_script_context 
+     * \return Boolean indicating success
+     */
     template <typename ComponentT, int N>
     [[nodiscard]] auto register_js_script(
         const script_handle_t p_script_handle,
@@ -105,6 +127,91 @@ private:
 
     entt::registry m_script_registry{};
 };
+
+template <event::meta::PistonEventT... Events>
+auto js_engine::register_script(const std::filesystem::path& p_path) noexcept -> bool
+{
+    const auto script_source = util::read_file_into_buffer(p_path);
+    auto script_name = p_path.filename().stem().string();
+
+    auto script = js_script::compile_script(script_source, std::move(script_name));
+    if (!script)
+    {
+        KB_PISTON_ERROR("[js_engine]: Failed to compile script!");
+        return false;
+    }
+
+    const auto script_handle = m_script_registry.create();
+    return register_script<Events...>(script_handle, std::move(*script));
+}
+
+template <event::meta::PistonEventT... Events>
+auto js_engine::register_script(script_handle_t p_script_handle, js_script p_js_script) noexcept -> bool
+{
+    v8::HandleScope handle_scope{ s_isolate };
+
+    // Retrieve globals
+    auto script_context = p_js_script.m_context.Get(s_isolate);
+    const auto globals = script_context->Global();
+
+    v8::Context::Scope context_scope{ script_context };
+
+    // Get onUpdate function
+    register_js_script<script_update_component>(
+        p_script_handle,
+        p_js_script,
+        js_script::k_on_update_js_name,
+        globals,
+        script_context
+    );
+
+    // Get onInit function
+    register_js_script<script_init_component>(
+        p_script_handle,
+        p_js_script,
+        js_script::k_on_init_js_name,
+        globals,
+        script_context
+    );
+
+    // Get events
+    if constexpr (sizeof...(Events) != 0)
+    {
+        // Compile time iteration of events.
+        // Tries to register event functions based off piston event definition.
+        using events_tuple_t = std::tuple<Events...>;
+        meta::for_each<events_tuple_t>([&]<typename T>()
+            {
+                register_js_script<script_event_callback_component<T>>(
+                    p_script_handle,
+                    p_js_script,
+                    T::get_js_event_function_name(),
+                    globals,
+                    script_context
+                );
+            }
+        );
+    }
+
+    m_script_registry.emplace<script_component>(p_script_handle, std::move(p_js_script));
+
+    KB_PISTON_INFO("[js_engine]: Registered script '{script}'", "script"_a = p_js_script.get_name());
+
+    return true;
+}
+
+template <event::meta::PistonEventT EventT>
+auto js_engine::on_event(EventT* KB_RESTRICT p_event) const noexcept -> void
+{
+    const auto view = m_script_registry.view<script_component, script_event_callback_component<EventT>>();
+    for (const auto entity : view)
+    {
+        const auto& script = get_component<script_component>(entity).m_script;
+        const auto& event_callback_func = get_component<script_event_callback_component<EventT>>(entity).m_on_event_callback;
+
+        script.template on_event<EventT>(s_isolate, &event_callback_func, p_event);
+    }
+}
 
 template <typename ComponentT, int N>
 auto js_engine::register_js_script(

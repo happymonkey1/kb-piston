@@ -2,6 +2,7 @@
 
 #include "kb/piston/core/core.h"
 #include "kb/piston/core/types.h"
+#include "kb/piston/event/meta.h"
 #include "kb/piston/error/js_error.h"
 #include "kb/piston/script/js_script_error.h"
 
@@ -10,8 +11,6 @@
 #include <filesystem>
 
 #include "kb/piston/log/logger.h"
-#include "kb/piston/runtime/application.h"
-#include "kb/piston/runtime/console.h"
 
 namespace kb::piston
 { // start namespace kb::piston
@@ -69,12 +68,34 @@ public:
         return call_function(p_isolate, p_update_func, k_on_update_js_name);
     }
 
+    template <event::meta::PistonEventT EventT>
+    [[nodiscard]] auto on_event(
+        v8::Isolate* KB_RESTRICT p_isolate,
+        const v8::Global<v8::Function>* KB_RESTRICT p_on_event_callback_func,
+        EventT* KB_RESTRICT p_event
+    ) const noexcept -> option<error>
+    {
+        v8::Local<v8::Value> args[] = {
+            v8::Undefined(p_isolate) // TODO: fixme
+        };
+
+        return call_function(
+            p_isolate,
+            p_on_event_callback_func,
+            "unnamedEventCallbackFunc", // TODO: fixme
+            1,
+             args
+        );
+    }
+
 private:
     template <int N>
     [[nodiscard]] auto call_function(
         v8::Isolate* KB_RESTRICT p_isolate,
         const v8::Global<v8::Function>* KB_RESTRICT p_update_func,
-        const char(&p_func_name)[N]
+        const char(&p_func_name)[N],
+        i32 p_argc = 0,
+        v8::Local<v8::Value>* KB_RESTRICT p_argv = nullptr
     ) const noexcept -> option<error>;
 
 private:
@@ -89,7 +110,9 @@ template <int N>
 auto js_script::call_function(
     v8::Isolate* KB_RESTRICT p_isolate,
     const v8::Global<v8::Function>* KB_RESTRICT p_func,
-    const char(& p_func_name)[N]
+    const char(& p_func_name)[N],
+    i32 p_argc /* = 0 */,
+    v8::Local<v8::Value>* KB_RESTRICT p_argv /* = nullptr */
 ) const noexcept -> option<error>
 {
     // KB_PISTON_INFO("[js_script]: {}.onUpdate", m_name);
@@ -153,8 +176,8 @@ auto js_script::call_function(
         const auto maybe_result = js_func->Call(
             js_func->GetCreationContext(p_isolate).ToLocalChecked(),
             recv,
-            0,
-            nullptr
+            p_argc,
+            p_argv
         );
 
         if (try_catch_script_errors.HasCaught())

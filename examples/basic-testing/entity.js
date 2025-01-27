@@ -9,7 +9,8 @@ let updateCounter = 0;
 
 function onUpdate() {
     if (updateCounter % 1000 === 0) {
-        console.log('Hello from entity.js!');
+        //console.log('Hello from entity.js!');
+        updateCounter = 0;
     }
 
     updateCounter++;
