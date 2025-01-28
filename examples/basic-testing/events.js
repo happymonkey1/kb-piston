@@ -11,5 +11,5 @@
 
 
 function onRandomEvent(event) {
-    console.log(`onRandomEvent called with event=${event}`)
+    console.log(`onRandomEvent called with event=${JSON.stringify(event)}`)
 };
