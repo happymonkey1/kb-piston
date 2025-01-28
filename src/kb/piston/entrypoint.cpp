@@ -76,26 +76,27 @@ auto test_events_standalone() noexcept -> void
 
 } // end namespace ::details
 
-// construct events
 enum class event_type_t
 {
     random_event,
 };
 
+// Define piston events
 PISTON_EVENT_BEGIN(random_event, event_type_t::random_event, "onRandomEvent")
 PISTON_EVENT_END()
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     piston_internal::register_signal_handlers();
 
-    // TODO: this should probably be handled by internal api exposed through kb::piston::init() when `KB_PISTON_EXTERNAL_LOGGER` is not defined.
-    fmtlog::startPollingThread(1000000);
+    // Initialize piston internals
+    kb::piston::init();
 
     KB_PISTON_INFO("Starting Piston JS Engine");
     kb::piston::js_engine engine{};
 
     using events_t = std::tuple<random_event>;
 
+    // Construct an event orchestrator with dispatchers for our events
     const auto event_orchestrator = kb::piston::event::make_orchestrator<events_t>(
         // Bind the JS engine on event handler
         [&](random_event* KB_RESTRICT p_event) -> bool { engine.on_event(p_event); return true; }
@@ -105,9 +106,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     scripts_to_load.emplace_back("examples/basic-testing/entity.js");
     scripts_to_load.emplace_back("examples/basic-testing/serialization.js");
     scripts_to_load.emplace_back("examples/basic-testing/events.js");
+    scripts_to_load.emplace_back("examples/basic-testing/application.js");
 
     for (const char* script_name : scripts_to_load)
     {
+        // TODO: register_script interface that takes a tuple, similar to make_orchestrator()
         if (!engine.register_script<random_event>(script_name))
         {
             KB_PISTON_ERROR("Fatal script loading error!");

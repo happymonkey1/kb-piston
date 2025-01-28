@@ -1,4 +1,6 @@
 #pragma once
+
+#include "kb/piston/core/core.h"
 #include "kb/piston/core/types.h"
 
 #include <v8.h>
@@ -24,6 +26,7 @@ public:
     { }
 
     [[nodiscard]] static auto compile_module(
+        v8::Isolate* KB_RESTRICT p_isolate,
         std::string_view p_module_source,
         std::string p_module_name = "unnamed_module"
     ) noexcept -> option<js_module>;

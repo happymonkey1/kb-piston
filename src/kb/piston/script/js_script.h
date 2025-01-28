@@ -11,6 +11,7 @@
 #include <filesystem>
 
 #include "kb/piston/log/logger.h"
+#include "kb/piston/runtime/context.h"
 
 namespace kb::piston
 { // start namespace kb::piston
@@ -44,6 +45,8 @@ public:
     ~js_script() noexcept = default;
 
     [[nodiscard]] static auto compile_script(
+        v8::Isolate* KB_RESTRICT p_isolate,
+        const runtime::context_t& p_runtime_context,
         std::string_view p_script_source,
         std::string p_script_name = "unnamed_script"
     ) noexcept -> option<js_script>;

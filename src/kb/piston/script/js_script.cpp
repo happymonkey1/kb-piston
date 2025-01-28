@@ -28,24 +28,21 @@ js_script::js_script(v8::Global<v8::Context> p_context, v8::Global<v8::Script> p
 }
 
 auto js_script::compile_script(
+    v8::Isolate* KB_RESTRICT p_isolate,
+    const runtime::context_t& p_runtime_context,
     std::string_view p_script_source,
     std::string p_script_name
 ) noexcept -> option<js_script>
 {
     KB_PISTON_INFO("[js_engine]: Compiling script '{script_name}'", "script_name"_a = p_script_name);
-    auto* isolate = js_engine::get_isolate();
-    v8::HandleScope handle_scope{ isolate };
+    v8::HandleScope handle_scope{ p_isolate };
 
-    const v8::Local<v8::Context> script_context = v8::Context::New(
-        isolate,
-        nullptr,
-        js_engine::get_global_template()
-    );
+    const v8::Local<v8::Context> script_context = v8::Context::New(p_isolate);
     // const auto script_context = js_engine::get_context();
 
     // This feels dirty, but we are registering the runtime APIs with each new script context
     // TODO: There should be a better way, potentially using object templates that I have not figured out yet...
-    js_engine::register_runtime_apis(script_context);
+    js_engine::register_runtime_apis(p_isolate, script_context, p_runtime_context);
 
 #if 0
     // Debugging
@@ -77,10 +74,10 @@ auto js_script::compile_script(
     v8::Context::Scope context_scope{ script_context };
     v8::Local<v8::Script> script{};
     {
-        const v8::TryCatch try_catch_script_errors{ isolate };
+        const v8::TryCatch try_catch_script_errors{ p_isolate };
 
         const auto utf8_source = v8::String::NewFromUtf8(
-            isolate,
+            p_isolate,
             p_script_source.data(),
             v8::NewStringType::kNormal
         ).ToLocalChecked();
@@ -93,7 +90,7 @@ auto js_script::compile_script(
         if (!compile_result.ToLocal(&script))
         {
             // NOTE: Unconditional copy here, though performance during initialization error is not a big concern
-            v8::String::Utf8Value error_message{ isolate, try_catch_script_errors.Exception() };
+            v8::String::Utf8Value error_message{ p_isolate, try_catch_script_errors.Exception() };
 
             // TODO: use error
             KB_PISTON_ERROR(
@@ -109,7 +106,7 @@ auto js_script::compile_script(
         if (!script->Run(script_context).ToLocal(&script_result))
         {
             // NOTE: Unconditional copy here, though performance during initialization error is not a big concern
-            v8::String::Utf8Value error_message{ isolate, try_catch_script_errors.Exception() };
+            v8::String::Utf8Value error_message{ p_isolate, try_catch_script_errors.Exception() };
 
             // TODO: use error
             KB_PISTON_ERROR(
@@ -123,8 +120,8 @@ auto js_script::compile_script(
     }
 
     return std::make_optional<js_script>(
-        v8::Global<v8::Context>{ isolate, script_context },
-        v8::Global<v8::Script>{ isolate, script },
+        v8::Global<v8::Context>{ p_isolate, script_context },
+        v8::Global<v8::Script>{ p_isolate, script },
         std::move(p_script_name)
     );
 }

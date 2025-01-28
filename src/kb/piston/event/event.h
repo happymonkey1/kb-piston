@@ -30,7 +30,7 @@ private:
 };
 
 #define PISTON_EVENT_BEGIN(derived_event, event_type, js_event_func_name) \
-    class derived_event : public kb::piston::event::piston_event<event_type_t, derived_event> { \
+    class derived_event : public ::kb::piston::event::piston_event<event_type_t, derived_event> { \
     public: \
     derived_event() noexcept = default; \
     ~derived_event() noexcept = default; \
@@ -41,6 +41,9 @@ private:
     auto get_piston_event_impl() noexcept -> piston_event& { return *this; } \
     auto get_event_impl() const noexcept -> const derived_event& { return *this; } \
     auto get_event_impl() noexcept -> derived_event& { return *this; } \
+    /* \
+     * Special sauce to return a string literal
+     */ \
     constexpr static const char (&get_js_event_function_name())[sizeof(js_event_func_name)] { return { js_event_func_name }; } \
     private:
 

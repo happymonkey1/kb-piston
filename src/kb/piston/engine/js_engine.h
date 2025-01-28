@@ -13,6 +13,8 @@
 
 #include <vector>
 
+#include "kb/piston/runtime/application.h"
+#include "kb/piston/runtime/context.h"
 #include "kb/piston/util/file_util.h"
 
 
@@ -45,39 +47,42 @@ public:
         js_script p_js_script
     ) noexcept -> bool;
 
+    /**
+     * \brief Call `onInit` JS functions that have been registered
+     */
     auto on_init() const noexcept -> void;
+
+    /**
+     * \brief Call `onUpdate` JS functions that have been registered
+     * \param p_time_step Delta time from the last `onUpdate` call 
+     */
     auto on_update(time_step_t p_time_step) const noexcept -> void;
 
-    template <piston::event::meta::PistonEventT EventT>
+    /**
+     * \brief Handler for registered events which dispatches to registered JS callbacks
+     * \tparam EventT 
+     * \param p_event 
+     */
+    template <event::meta::PistonEventT EventT>
     auto on_event(EventT* KB_RESTRICT p_event) const noexcept -> void;
 
     /**
      * \brief Register runtime APIs (console.log, etc) within a context
+     * \param p_isolate Isolate instance
      * \param p_context Context to register runtimes within
+     * \param p_runtime_context Piston runtime data
      */
     static auto register_runtime_apis(
-        const v8::Local<v8::Context>& p_context
+        v8::Isolate* KB_RESTRICT p_isolate,
+        const v8::Local<v8::Context>& p_context,
+        const runtime::context_t& p_runtime_context
     ) noexcept -> void;
-
-    static auto get_context() noexcept -> v8::Local<v8::Context> { return s_global_context.Get(s_isolate); }
-
-    static auto get_isolate() noexcept -> v8::Isolate*
-    {
-        KB_PISTON_ASSERT(s_isolate, "[js_engine]: Isolate can not be null!");
-        return s_isolate;
-    }
-
-    static auto get_global_template() noexcept -> v8::Local<v8::ObjectTemplate>
-    {
-        KB_PISTON_ASSERT(!s_global_template.IsEmpty(), "[js_engine]: Global template object can not be empty!");
-        return s_global_template.Get(s_isolate);
-    }
 
     auto handle_exception(const v8::TryCatch& p_try_catch) noexcept -> bool;
     auto handle_exception(v8::Local<v8::Value> p_error, v8::Local<v8::Message> p_message) noexcept -> bool;
 
     template <typename ComponentT>
-    auto get_component(script_handle_t p_script_handle) const noexcept -> const ComponentT&
+    [[nodiscard]] auto get_component(script_handle_t p_script_handle) const noexcept -> const ComponentT&
     {
         KB_PISTON_ASSERT(
             m_script_registry.all_of<ComponentT>(p_script_handle),
@@ -87,7 +92,7 @@ public:
     }
 
     template <typename ComponentT>
-    auto get_component(script_handle_t p_script_handle) noexcept -> ComponentT&
+    [[nodiscard]] auto get_component(script_handle_t p_script_handle) noexcept -> ComponentT&
     {
         KB_PISTON_ASSERT(
             m_script_registry.all_of<ComponentT>(p_script_handle),
@@ -101,11 +106,11 @@ private:
      * \brief Register a JS function in the internal ecs registry
      * \tparam ComponentT 
      * \tparam N 
-     * \param p_script_handle handle to the entity within the internal registry
-     * \param p_js_script
-     * \param p_function_name 
-     * \param p_js_globals 
-     * \param p_script_context 
+     * \param p_script_handle Handle to the entity within the internal registry
+     * \param p_js_script JS script to register the function with
+     * \param p_function_name Function name to look for
+     * \param p_js_globals V8 Global data
+     * \param p_script_context Local script context
      * \return Boolean indicating success
      */
     template <typename ComponentT, int N>
@@ -118,13 +123,21 @@ private:
     ) noexcept -> bool;
 
 private:
+    // V8 Platform
     std::unique_ptr<v8::Platform> m_platform;
-    static v8::Isolate* s_isolate;
+    // Isolated V8 instance
+    v8::Isolate* m_isolate;
+    // Global context for the piston engine
+    v8::Global<v8::Context> m_global_context;
+    // Piston runtime data
+    std::unique_ptr<runtime::context_t> m_runtime_context{ nullptr };
+    // JS object instance for the piston engine
     v8::Global<v8::Object> m_self_instance{};
-    static v8::Global<v8::Context> s_global_context;
-    static v8::Global<v8::ObjectTemplate> s_global_template;
+    // JS object template for the piston engine
+    v8::Global<v8::ObjectTemplate> m_global_template;
+    // Isolated V8 instance parameters (such as allocator)
     v8::Isolate::CreateParams m_create_params{};
-
+    // Piston ecs registry
     entt::registry m_script_registry{};
 };
 
@@ -134,7 +147,13 @@ auto js_engine::register_script(const std::filesystem::path& p_path) noexcept ->
     const auto script_source = util::read_file_into_buffer(p_path);
     auto script_name = p_path.filename().stem().string();
 
-    auto script = js_script::compile_script(script_source, std::move(script_name));
+    auto script = js_script::compile_script(
+        m_isolate,
+        *m_runtime_context,
+        std::string_view{ script_source },
+        std::move(script_name)
+    );
+
     if (!script)
     {
         KB_PISTON_ERROR("[js_engine]: Failed to compile script!");
@@ -148,10 +167,10 @@ auto js_engine::register_script(const std::filesystem::path& p_path) noexcept ->
 template <event::meta::PistonEventT... Events>
 auto js_engine::register_script(script_handle_t p_script_handle, js_script p_js_script) noexcept -> bool
 {
-    v8::HandleScope handle_scope{ s_isolate };
+    v8::HandleScope handle_scope{ m_isolate };
 
     // Retrieve globals
-    auto script_context = p_js_script.m_context.Get(s_isolate);
+    auto script_context = p_js_script.m_context.Get(m_isolate);
     const auto globals = script_context->Global();
 
     v8::Context::Scope context_scope{ script_context };
@@ -166,6 +185,7 @@ auto js_engine::register_script(script_handle_t p_script_handle, js_script p_js_
     );
 
     // Get onInit function
+    // TODO: handle return value
     register_js_script<script_init_component>(
         p_script_handle,
         p_js_script,
@@ -209,7 +229,7 @@ auto js_engine::on_event(EventT* KB_RESTRICT p_event) const noexcept -> void
         const auto& script = get_component<script_component>(entity).m_script;
         const auto& event_callback_func = get_component<script_event_callback_component<EventT>>(entity).m_on_event_callback;
 
-        script.template on_event<EventT>(s_isolate, &event_callback_func, p_event);
+        script.template on_event<EventT>(m_isolate, &event_callback_func, p_event);
     }
 }
 
@@ -222,11 +242,13 @@ auto js_engine::register_js_script(
     v8::Local<v8::Context>& p_script_context
 ) noexcept -> bool
 {
+    // Retrieve the js function from the context
     auto maybe_func = p_js_globals->Get(
         p_script_context,
-        v8::String::NewFromUtf8Literal(s_isolate, p_function_name)
+        v8::String::NewFromUtf8Literal(m_isolate, p_function_name)
     );
 
+    // Try loading
     v8::Local<v8::Value> func;
     if (!maybe_func.ToLocal(&func))
     {
@@ -239,11 +261,11 @@ auto js_engine::register_js_script(
         return false; // TODO: return error
     }
 
-    auto* isolate = get_isolate();
+    // Ensure function was found
     if (func->IsNullOrUndefined() || !func->IsFunction())
     {
-        const auto func_type = func->TypeOf(isolate);
-        v8::String::Utf8Value func_type_str{ isolate, func_type };
+        const auto func_type = func->TypeOf(m_isolate);
+        v8::String::Utf8Value func_type_str{ m_isolate, func_type };
 
         if (func->IsNullOrUndefined())
         {
@@ -267,9 +289,10 @@ auto js_engine::register_js_script(
         return false; // TODO: return error
     }
 
+    // Register the function in the internal ecs registry
     m_script_registry.emplace<ComponentT>(
         p_script_handle,
-        v8::Global<v8::Function>{ s_isolate, func.As<v8::Function>() }
+        v8::Global<v8::Function>{ m_isolate, func.As<v8::Function>() }
     );
 
     return true;

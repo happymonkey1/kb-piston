@@ -93,7 +93,7 @@ private:
 // Construct an orchestrator from a tuple of types, rather than a variadic template
 template <typename T>
 // TODO: require T is an std::tuple< ... >
-auto make_orchestrator(auto&&... p_handlers) noexcept -> piston::meta::unpack_type_t<T, orchestrator>
+[[nodiscard]] auto make_orchestrator(auto&&... p_handlers) noexcept -> piston::meta::unpack_type_t<T, orchestrator>
 {
     return piston::meta::unpack_type_t<T, orchestrator>{ std::forward<decltype(p_handlers)>(p_handlers)... };
 }

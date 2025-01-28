@@ -1,6 +1,0 @@
-
-
-
-function onUpdate() {
-    Application.exit();
-}

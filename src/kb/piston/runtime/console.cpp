@@ -87,8 +87,6 @@ auto console::log_error_handler(const v8::FunctionCallbackInfo<v8::Value>& p_arg
 
 auto console::log_impl_handler(log_level_t p_level, const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> void
 {
-    KB_PISTON_ASSERT(piston::js_engine::get_isolate(), "[console]: Isolate pointer can not be null!");
-
     const char* log_level_name = details::log_level_to_c_str(p_level);
     constexpr const char* log_format = "[JS Console] [{}]: {}";
     auto args_str = js_args_to_string(p_args);
@@ -121,13 +119,14 @@ auto console::log_impl_handler(log_level_t p_level, const v8::FunctionCallbackIn
 
 auto console::js_args_to_string(const v8::FunctionCallbackInfo<v8::Value>& p_args) noexcept -> std::string
 {
+    v8::Isolate* isolate = p_args.GetIsolate();
     std::stringstream ss;
     for (i32 i = 0; i < p_args.Length(); ++i)
     {
         if (i > 0)
             ss << ' ';
 
-        v8::String::Utf8Value arg_str{ piston::js_engine::get_isolate(), p_args[i] };
+        v8::String::Utf8Value arg_str{ isolate, p_args[i] };
         ss << *arg_str;
     }
 
